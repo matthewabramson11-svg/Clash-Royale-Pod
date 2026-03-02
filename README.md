@@ -20,16 +20,46 @@ A computer vision and statistical modeling pipeline that analyzes Clash Royale m
    ```bash
    code .
    ```
-3. When prompted, click **"Reopen in Container"** (or run `Dev Containers: Reopen in Container` from the command palette)
+3. When prompted, click **"Reopen in Container"** (or press ctrl+shift+p and run `Dev Containers: Reopen in Container` from the command palette)
+
+*Windows users*: If the container build fails with `\r': command not found` errors, your git converted files to Windows line endings. Fix it by running this **outside** the container before reopening:
+   ```bash
+   git pull
+   git rm --cached -r .
+   git reset --hard
+   ```
 4. Wait for the container to build (~3-5 min the first time)
 5. Verify everything works:
    ```bash
    uv run python -c "import torch; import cv2; import ultralytics; print('ready')"
    ```
+   **AND**
+   ```bash
+   bash .devcontainer/test_tools.sh
+   ```
 
 That's it. Python, PyTorch, YOLO, OpenCV, FFmpeg, Tesseract, and all dependencies are pre-installed.
 
-## Project Structure
+### Make sure your virtual environment is activated
+
+When you open a terminal in VS Code, the Python extension should automatically activate the `.venv`. You can tell by looking at your terminal prompt — it should start with `(workspace)` (Be patient and wait a couple of seconds before running the source command 😊)
+
+**BAD**
+
+![no env activated](README_IMAGES/image.png)
+
+**GOOD**
+
+![venv activated](README_IMAGES/image-1.png)
+
+If you don't see `(workspace)` in your prompt, activate it manually:
+```bash
+source .venv/bin/activate
+```
+
+**Why this matters:** Without the venv activated, `python` uses the system Python (3.12) which doesn't have your project's packages installed. With it activated, `python` uses the project's Python (3.11) with all dependencies available.
+
+## Project Structure (Ignore for now)
 
 ```
 Clash-Royale-Pod/
@@ -194,20 +224,23 @@ Since we use **uv + `pyproject.toml`**, adding packages on feature branches merg
 2. **Include both files** in your PR commit.
 3. **On merge**, Git auto-merges `pyproject.toml` as long as different people edited different lines. If there's a conflict in `uv.lock`, resolve `pyproject.toml` first, then run `uv lock` to regenerate the lockfile.
 
-### After pulling main with new dependencies
+### When main is updated
 
+After pulling the latest changes from main, check what files changed and follow the appropriate steps:
+
+| What changed | What to do |
+| ------------ | ---------- |
+| `pyproject.toml` / `uv.lock` (new Python packages) | Run `uv sync` — no rebuild needed |
+| `Makefile` or `.devcontainer/test_tools.sh` | No action needed, changes apply automatically |
+| `Dockerfile`, `devcontainer.json`, or `docker-compose.yml` | **Rebuild the container** (see below) |
+
+**To rebuild:** Open the VS Code command palette and run `Dev Containers: Rebuild Container`. This will rebuild the image and re-run the setup. You will need to re-authenticate the AI coding tools after a rebuild.
+
+If you're unsure what changed, you can always run `uv sync` (safe to run anytime) and check if a rebuild is needed:
 ```bash
-uv sync
+git diff main@{1} --name-only | grep -E "Dockerfile|devcontainer.json|docker-compose.yml"
 ```
-
-This installs any newly added packages in your existing container. **No container rebuild needed.**
-
-### When a container rebuild IS needed
-
-Rebuild your container (VS Code: `Dev Containers: Rebuild Container`) if a PR changed:
-- `Dockerfile` (e.g., new system package like a C library)
-- `devcontainer.json` (features or settings)
-- `docker-compose.yml`
+If that returns any files, rebuild. Otherwise `uv sync` is enough.
 
 ## Sub-Teams
 
@@ -216,6 +249,18 @@ Rebuild your container (VS Code: `Dev Containers: Rebuild Container`) if a PR ch
 | **Data & Detection** | Replay collection, annotation in Roboflow, YOLO training |
 | **Tracking & Feature Engineering** | ByteTrack (via supervision), Tesseract OCR, event log construction |
 | **Modeling & Visualization** | LightGBM, EV calculations, heatmaps, statistical analysis |
+
+## AI Coding Tools
+
+The container comes with three AI coding assistants pre-installed. After your first container build, authenticate each one by running the command in the terminal:
+
+| Tool | Command | Auth |
+| ---- | ------- | ---- |
+| [Claude Code](https://claude.ai) | `claude` | Log in with your Claude account |
+| [Gemini CLI](https://geminicli.com) | `gemini` | Log in with your Google account |
+| [Codex CLI](https://github.com/openai/codex) | `codex` | Log in with your ChatGPT account |
+
+You only need to authenticate once per container rebuild.
 
 ## Key Docs
 
@@ -236,3 +281,4 @@ Rebuild your container (VS Code: `Dev Containers: Rebuild Container`) if a PR ch
 | matplotlib / seaborn | Visualization |
 | uv | Python package and environment management |
 | Ruff | Linting and formatting |
+| Claude Code / Gemini CLI / Codex CLI | AI coding assistants |
